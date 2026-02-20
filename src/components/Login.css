@@ -1,0 +1,135 @@
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.login-wrapper {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ECF4E8;
+}
+
+.login-card {
+  width: 380px;
+  padding: 40px 30px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #CBF3BB, #93BFC7);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  background: #93BFC7;
+  border-radius: 50%;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar .icon {
+  font-size: 30px;
+}
+
+.login-card h2 {
+  color: #1f2f2f;
+  font-weight: 600;
+  letter-spacing: 2px;
+  margin-bottom: 30px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 22px;
+  border-bottom: 1px solid rgba(31, 47, 47, 0.4);
+}
+
+.input-icon {
+  margin-right: 10px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #1f2f2f;
+  font-size: 14px;
+}
+
+.input-group input::placeholder {
+  color: rgba(31, 47, 47, 0.6);
+}
+
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #1f2f2f;
+  margin-bottom: 28px;
+}
+
+.options a {
+  color: #1f2f2f;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.options a:hover {
+  text-decoration: underline;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  background: #ABE7B2;
+  border: none;
+  color: #1f2f2f;
+  font-size: 14px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.password-group {
+  position: relative;
+}
+
+.toggle-password {
+  position: absolute;
+  cursor: pointer;
+  font-size: 14px;
+  right: 5px;
+  user-select: none;
+}
+
+.error-text {
+  color: #b00020;
+  font-size: 12px;
+  margin: 8px 0 12px;
+  text-align: left;
+}
+
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+} 
