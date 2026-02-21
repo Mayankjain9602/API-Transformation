@@ -40,7 +40,7 @@ const ApiDocumentViewer = ({ doc }) => {
       <div className="api-section-card">
         <h2 className="section-title">Paths & Operations</h2>
 
-        {doc.paths?.map((pathItem, i) => (
+        {doc?.paths?.map((pathItem, i) => (
           <div key={i} className="path-card">
             <div className="path-header">
               <span className="path-label">Path:</span>

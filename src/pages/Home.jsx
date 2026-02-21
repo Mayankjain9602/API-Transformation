@@ -6,7 +6,6 @@ import "../styles/home.css";
 import { parseFile } from "../utils/api/apiParser";
 import { buildApiDocument } from "../utils/api/buildApiDocument";
 import ApiDocumentViewer from "../components/ApiDocumentViewer";
-
 import { uploadSwaggerDocument } from "../services/uploadService";
 
 // MUI Confirmation Dialog
@@ -16,6 +15,10 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
+
+
+//======== adaptBackendDocument.js
+import { adaptBackendDocument } from "../utils/api/adaptBackendDocument";
 
 const Home = () => {
   // ================= STATE
@@ -38,6 +41,7 @@ const Home = () => {
   const [docId, setDocId] = useState("");
   const [activeFileName, setActiveFileName] = useState("");
   const [docError, setDocError] = useState("");
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // ================= SAVE PARTNER
   const handleSave = (partner) => {
@@ -59,79 +63,92 @@ const Home = () => {
     }
   };
 
-  // ================= UPLOAD FILE (OPEN CONFIRM DIALOG)
+  // ================= FILE SELECT
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setSelectedFile(file);
     setConfirmOpen(true);
-
     e.target.value = "";
   };
 
   // ================= CONFIRM UPLOAD
-const handleConfirmUpload = async () => {
-  if (!selectedFile) return;
-
-  try {
-    // 1️⃣ Read file first
-    const text = await selectedFile.text();
-
-    // 2️⃣ Try parsing with your frontend parser
-    const parsed = parseFile(text, selectedFile.name);
-    buildApiDocument(parsed); // will throw if invalid
-
-    // 3️⃣ Only now upload to backend
-    const apiResponse = await uploadSwaggerDocument(selectedFile);
-
-    setDocuments((prev) => [
-      ...prev,
-      {
-        fileId: apiResponse.id,
-        fileName: selectedFile.name,
-        content: text,
-        meta: apiResponse,
-      },
-    ]);
-
-  } catch (error) {
-    alert("Invalid OpenAPI file: " + error.message);
-  }
-
-  setConfirmOpen(false);
-  setSelectedFile(null);
-};
-
-  // ================= LOAD DOCUMENT DETAILS
-  const handleLoadDetails = () => {
-    setDocError("");
-    setApiDoc(null);
-    setActiveFileName("");
-
-    const doc = documents.find((d) => d.fileId === docId);
-
-    if (!doc) {
-      setDocError("Document not found");
-      return;
-    }
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) return;
 
     try {
-      const parsed = parseFile(doc.content, doc.fileName);
-      const normalized = buildApiDocument(parsed);
+      // 1️⃣ Frontend validation
+      const text = await selectedFile.text();
+      const parsed = parseFile(text, selectedFile.name);
+      buildApiDocument(parsed);
 
-      setApiDoc(normalized);
-      setActiveFileName(doc.fileName);
-    } catch (err) {
-      setDocError(err.message || "Failed to process file");
+      // 2️⃣ Upload to backend
+      const apiResponse = await uploadSwaggerDocument(selectedFile);
+
+      // 3️⃣ Save document locally
+      setDocuments((prev) => [
+        ...prev,
+        {
+          fileId: apiResponse.id,
+          fileName: selectedFile.name,
+          meta: apiResponse,
+        },
+      ]);
+
+      // 4️⃣ Auto-fill Document ID for loading
+      setDocId(apiResponse.id);
+
+      alert("Upload successful. Document ID: " + apiResponse.id);
+    } catch (error) {
+      alert("Invalid OpenAPI file: " + error.message);
     }
+
+    setConfirmOpen(false);
+    setSelectedFile(null);
   };
 
-  // ================= DELETE DOCUMENT
+  // ================= LOAD DOCUMENT DETAILS FROM BACKEND
+const handleLoadDetails = async () => {
+  if (!docId) {
+    setDocError("Please enter a document ID");
+    return;
+  }
+
+  setDocError("");
+  setApiDoc(null);
+  setActiveFileName("");
+  setLoadingDetails(true);
+
+  try {
+    const response = await fetch(
+      `http://localhost:8080/api/swagger-docs/${docId}/details`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch document details");
+    }
+
+    const data = await response.json();
+
+    // 🔥 Normalize backend → viewer format
+    const normalized = adaptBackendDocument(data);
+
+    setApiDoc(normalized);
+    setActiveFileName(data.title || "API Document");
+
+  } catch (err) {
+    setDocError(err.message || "Error loading document");
+  } finally {
+    setLoadingDetails(false);
+  }
+};
+
+  // ================= DELETE DOCUMENT (Frontend Only)
   const handleDeleteDocument = () => {
     if (!docId) return;
 
-    if (window.confirm("Delete this document?")) {
+    if (window.confirm("Delete this document from list?")) {
       setDocuments((prev) => prev.filter((d) => d.fileId !== docId));
       setDocId("");
       setActiveFileName("");
@@ -154,7 +171,7 @@ const handleConfirmUpload = async () => {
 
   return (
     <div className="dashboard">
-      {/* ================= HEADER */}
+      {/* HEADER */}
       <div className="dashboard-header">
         <h1>Home Page</h1>
 
@@ -170,7 +187,7 @@ const handleConfirmUpload = async () => {
         </div>
       </div>
 
-      {/* ================= SEARCH PARTNER */}
+      {/* SEARCH PARTNER */}
       <input
         className="search"
         placeholder="Search Partner..."
@@ -178,7 +195,7 @@ const handleConfirmUpload = async () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* ================= PARTNER TABLE */}
+      {/* PARTNER TABLE */}
       <div className="table-card">
         <table>
           <thead>
@@ -222,7 +239,7 @@ const handleConfirmUpload = async () => {
         </table>
       </div>
 
-      {/* ================= SEARCH FILE */}
+      {/* SEARCH FILE */}
       <input
         className="search"
         placeholder="Search File..."
@@ -230,7 +247,7 @@ const handleConfirmUpload = async () => {
         onChange={(e) => setFileSearch(e.target.value)}
       />
 
-      {/* ================= DOCUMENT LIST */}
+      {/* DOCUMENT LIST */}
       <div className="document-list">
         {filteredDocuments.map((d) => (
           <div key={d.fileId} className="document-card">
@@ -240,40 +257,35 @@ const handleConfirmUpload = async () => {
         ))}
       </div>
 
-      {/* ================= DOCUMENT ACTIONS */}
+      {/* DOCUMENT ACTIONS */}
       <div className="doc-card">
-        <div className="doc-card-header">
-          <h3>Load API Document</h3>
-          <p>Enter the uploaded document ID to view structured details.</p>
-        </div>
+        <h3>Load API Document</h3>
 
-        <div className="doc-card-body">
-          <input
-            className="doc-input-modern"
-            placeholder="Enter Document UUID..."
-            value={docId}
-            onChange={(e) => setDocId(e.target.value)}
-          />
+        <input
+          className="doc-input-modern"
+          placeholder="Enter Document UUID..."
+          value={docId}
+          onChange={(e) => setDocId(e.target.value)}
+        />
 
-          <div className="doc-buttons">
-            <button className="btn-primary" onClick={handleLoadDetails}>
-              Load Details
-            </button>
+        <div className="doc-buttons">
+          <button className="btn-primary" onClick={handleLoadDetails}>
+            {loadingDetails ? "Loading..." : "Load Details"}
+          </button>
 
-            <button
-              className="btn-danger"
-              onClick={handleDeleteDocument}
-              disabled={!apiDoc}
-            >
-              Delete
-            </button>
-          </div>
+          <button
+            className="btn-danger"
+            onClick={handleDeleteDocument}
+            disabled={!docId}
+          >
+            Delete
+          </button>
         </div>
 
         {docError && <p className="error-modern">{docError}</p>}
       </div>
 
-      {/* ================= API DOCUMENT VIEWER */}
+      {/* API DOCUMENT VIEWER */}
       {apiDoc && (
         <div className="swagger-card">
           <h2>{activeFileName} Details</h2>
@@ -281,7 +293,7 @@ const handleConfirmUpload = async () => {
         </div>
       )}
 
-      {/* ================= MUI CONFIRMATION DIALOG */}
+      {/* CONFIRMATION DIALOG */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Confirm Upload</DialogTitle>
         <DialogContent>
@@ -303,7 +315,7 @@ const handleConfirmUpload = async () => {
         </DialogActions>
       </Dialog>
 
-      {/* ================= PARTNER MODAL */}
+      {/* PARTNER MODAL */}
       {openDialog && (
         <PartnerDialog
           initialData={editData}
