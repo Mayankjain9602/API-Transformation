@@ -73,40 +73,31 @@ const Home = () => {
     e.target.value = "";
   };
 
-  // ================= CONFIRM UPLOAD
-  const handleConfirmUpload = async () => {
-    if (!selectedFile) return;
+// ================= CONFIRM UPLOAD
+const handleConfirmUpload = async () => {
+  if (!selectedFile) return;
 
-    try {
-      // 1️⃣ Frontend validation
-      const text = await selectedFile.text();
-      const parsed = parseFile(text, selectedFile.name);
-      buildApiDocument(parsed);
+  try {
+    const apiResponse = await uploadSwaggerDocument(selectedFile);
 
-      // 2️⃣ Upload to backend
-      const apiResponse = await uploadSwaggerDocument(selectedFile);
+    setDocuments((prev) => [
+      ...prev,
+      {
+        fileId: apiResponse.id,
+        fileName: selectedFile.name,
+        meta: apiResponse,
+      },
+    ]);
 
-      // 3️⃣ Save document locally
-      setDocuments((prev) => [
-        ...prev,
-        {
-          fileId: apiResponse.id,
-          fileName: selectedFile.name,
-          meta: apiResponse,
-        },
-      ]);
+    alert("Upload successful. Document ID: " + apiResponse.id);
 
-      // 4️⃣ Auto-fill Document ID for loading
-      setDocId(apiResponse.id);
+  } catch (error) {
+    alert(error.message || "Upload failed.");
+  }
 
-      alert("Upload successful. Document ID: " + apiResponse.id);
-    } catch (error) {
-      alert("Invalid OpenAPI file: " + error.message);
-    }
-
-    setConfirmOpen(false);
-    setSelectedFile(null);
-  };
+  setConfirmOpen(false);
+  setSelectedFile(null);
+};
 
   // ================= LOAD DOCUMENT DETAILS FROM BACKEND
 const handleLoadDetails = async () => {
@@ -248,18 +239,31 @@ const handleLoadDetails = async () => {
       />
 
       {/* DOCUMENT LIST */}
-      <div className="document-list">
-        {filteredDocuments.map((d) => (
-          <div key={d.fileId} className="document-card">
-            <strong>{d.fileName}</strong>
-            <p><strong>Document ID:</strong> {d.fileId}</p>
-          </div>
-        ))}
-      </div>
+<div className="document-list">
+  {filteredDocuments.map((d) => (
+    <div key={d.fileId} className="document-card">
+      <strong>{d.fileName}</strong>
+
+      <p>
+        <strong>Document ID:</strong> {d.fileId}
+      </p>
+
+      <button
+        className="btn-primary"
+        onClick={() => {
+          navigator.clipboard.writeText(d.fileId);
+          alert("Document ID copied!");
+        }}
+      >
+        Copy ID
+      </button>
+    </div>
+  ))}
+</div>
 
       {/* DOCUMENT ACTIONS */}
       <div className="doc-card">
-        <h3>Load API Document</h3>
+        <h3>Document Details</h3>
 
         <input
           className="doc-input-modern"
