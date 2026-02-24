@@ -1,14 +1,9 @@
 import { useState, useMemo } from "react";
 import PartnerDialog from "../components/PartnerDialog";
-import "swagger-ui-react/swagger-ui.css";
-import "../styles/home.css";
-
-import { parseFile } from "../utils/api/apiParser";
-import { buildApiDocument } from "../utils/api/buildApiDocument";
 import ApiDocumentViewer from "../components/ApiDocumentViewer";
 import { uploadSwaggerDocument } from "../services/uploadService";
+import { adaptBackendDocument } from "../utils/api/adaptBackendDocument";
 
-// MUI Confirmation Dialog
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -16,12 +11,9 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 
-
-//======== adaptBackendDocument.js
-import { adaptBackendDocument } from "../utils/api/adaptBackendDocument";
+import "../styles/home.css";
 
 const Home = () => {
-  // ================= STATE
   const [partners, setPartners] = useState([]);
   const [documents, setDocuments] = useState([]);
 
@@ -32,16 +24,11 @@ const Home = () => {
   const [fileSearch, setFileSearch] = useState("");
 
   const [apiDoc, setApiDoc] = useState(null);
+  const [activeFileName, setActiveFileName] = useState("");
+  const [activeDocId, setActiveDocId] = useState(null);
 
-  // ================= UPLOAD CONFIRMATION STATE
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-
-  // ================= DOCUMENT DETAILS STATE
-  const [docId, setDocId] = useState("");
-  const [activeFileName, setActiveFileName] = useState("");
-  const [docError, setDocError] = useState("");
-  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // ================= SAVE PARTNER
   const handleSave = (partner) => {
@@ -67,83 +54,62 @@ const Home = () => {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setSelectedFile(file);
     setConfirmOpen(true);
     e.target.value = "";
   };
 
-// ================= CONFIRM UPLOAD
-const handleConfirmUpload = async () => {
-  if (!selectedFile) return;
+  // ================= CONFIRM UPLOAD
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) return;
 
-  try {
-    const apiResponse = await uploadSwaggerDocument(selectedFile);
+    try {
+      const apiResponse = await uploadSwaggerDocument(selectedFile);
 
-    setDocuments((prev) => [
-      ...prev,
-      {
-        fileId: apiResponse.id,
-        fileName: selectedFile.name,
-        meta: apiResponse,
-      },
-    ]);
+      setDocuments((prev) => [
+        ...prev,
+        {
+          fileId: apiResponse.id,
+          fileName: selectedFile.name,
+        },
+      ]);
 
-    alert("Upload successful. Document ID: " + apiResponse.id);
-
-  } catch (error) {
-    alert(error.message || "Upload failed.");
-  }
-
-  setConfirmOpen(false);
-  setSelectedFile(null);
-};
-
-  // ================= LOAD DOCUMENT DETAILS FROM BACKEND
-const handleLoadDetails = async () => {
-  if (!docId) {
-    setDocError("Please enter a document ID");
-    return;
-  }
-
-  setDocError("");
-  setApiDoc(null);
-  setActiveFileName("");
-  setLoadingDetails(true);
-
-  try {
-    const response = await fetch(
-      `http://localhost:8080/api/swagger-docs/${docId}/details`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch document details");
+      alert("Upload successful. Document ID: " + apiResponse.id);
+    } catch (error) {
+      alert(error.message || "Upload failed.");
     }
 
-    const data = await response.json();
+    setConfirmOpen(false);
+    setSelectedFile(null);
+  };
 
-    // 🔥 Normalize backend → viewer format
-    const normalized = adaptBackendDocument(data);
-
-    setApiDoc(normalized);
-    setActiveFileName(data.title || "API Document");
-
-  } catch (err) {
-    setDocError(err.message || "Error loading document");
-  } finally {
-    setLoadingDetails(false);
-  }
-};
-
-  // ================= DELETE DOCUMENT (Frontend Only)
-  const handleDeleteDocument = () => {
-    if (!docId) return;
-
-    if (window.confirm("Delete this document from list?")) {
-      setDocuments((prev) => prev.filter((d) => d.fileId !== docId));
-      setDocId("");
-      setActiveFileName("");
+  // ================= TOGGLE DOCUMENT
+  const handleDocumentClick = async (id, fileName) => {
+    if (activeDocId === id) {
+      setActiveDocId(null);
       setApiDoc(null);
+      setActiveFileName("");
+      return;
+    }
+
+    try {
+      setActiveDocId(id);
+
+      const response = await fetch(
+        `http://localhost:8080/api/swagger-docs/${id}/details`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch document details");
+      }
+
+      const data = await response.json();
+      const normalized = adaptBackendDocument(data);
+
+      setApiDoc(normalized);
+      setActiveFileName(fileName);
+    } catch (err) {
+      alert(err.message || "Error loading document");
     }
   };
 
@@ -162,7 +128,7 @@ const handleLoadDetails = async () => {
 
   return (
     <div className="dashboard">
-      {/* HEADER */}
+
       <div className="dashboard-header">
         <h1>Home Page</h1>
 
@@ -178,7 +144,6 @@ const handleLoadDetails = async () => {
         </div>
       </div>
 
-      {/* SEARCH PARTNER */}
       <input
         className="search"
         placeholder="Search Partner..."
@@ -186,7 +151,6 @@ const handleLoadDetails = async () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* PARTNER TABLE */}
       <div className="table-card">
         <table>
           <thead>
@@ -230,7 +194,6 @@ const handleLoadDetails = async () => {
         </table>
       </div>
 
-      {/* SEARCH FILE */}
       <input
         className="search"
         placeholder="Search File..."
@@ -238,58 +201,28 @@ const handleLoadDetails = async () => {
         onChange={(e) => setFileSearch(e.target.value)}
       />
 
-      {/* DOCUMENT LIST */}
-<div className="document-list">
-  {filteredDocuments.map((d) => (
-    <div key={d.fileId} className="document-card">
-      <strong>{d.fileName}</strong>
-
-      <p>
-        <strong>Document ID:</strong> {d.fileId}
-      </p>
-
-      <button
-        className="btn-primary"
-        onClick={() => {
-          navigator.clipboard.writeText(d.fileId);
-          alert("Document ID copied!");
-        }}
-      >
-        Copy ID
-      </button>
-    </div>
-  ))}
-</div>
-
-      {/* DOCUMENT ACTIONS */}
-      <div className="doc-card">
-        <h3>Document Details</h3>
-
-        <input
-          className="doc-input-modern"
-          placeholder="Enter Document UUID..."
-          value={docId}
-          onChange={(e) => setDocId(e.target.value)}
-        />
-
-        <div className="doc-buttons">
-          <button className="btn-primary" onClick={handleLoadDetails}>
-            {loadingDetails ? "Loading..." : "Load Details"}
-          </button>
-
-          <button
-            className="btn-danger"
-            onClick={handleDeleteDocument}
-            disabled={!docId}
+      <div className="document-list">
+        {filteredDocuments.map((d) => (
+          <div
+            key={d.fileId}
+            className="document-card"
+            onClick={() => handleDocumentClick(d.fileId, d.fileName)}
+            style={{
+              cursor: "pointer",
+              border:
+                activeDocId === d.fileId
+                  ? "2px solid #4f46e5"
+                  : "1px solid #ddd",
+            }}
           >
-            Delete
-          </button>
-        </div>
-
-        {docError && <p className="error-modern">{docError}</p>}
+            <strong>{d.fileName}</strong>
+            <p>
+              <strong>Document ID:</strong> {d.fileId}
+            </p>
+          </div>
+        ))}
       </div>
 
-      {/* API DOCUMENT VIEWER */}
       {apiDoc && (
         <div className="swagger-card">
           <h2>{activeFileName} Details</h2>
@@ -297,7 +230,6 @@ const handleLoadDetails = async () => {
         </div>
       )}
 
-      {/* CONFIRMATION DIALOG */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Confirm Upload</DialogTitle>
         <DialogContent>
@@ -319,7 +251,6 @@ const handleLoadDetails = async () => {
         </DialogActions>
       </Dialog>
 
-      {/* PARTNER MODAL */}
       {openDialog && (
         <PartnerDialog
           initialData={editData}
