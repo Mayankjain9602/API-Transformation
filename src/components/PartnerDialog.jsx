@@ -1,133 +1,109 @@
 import { useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 
-const PartnerDialog = ({ initialData, onSave, onClose }) => {
-  const [form, setForm] = useState(
-    initialData || {
-      name: "",
-      url: "",
-      method: "GET",
-      headers: "",
-      payload: "",
-      files: [], //DATA MODEL 
-    },
-  );
+const PartnerDialog = ({ onClose }) => {
+  const [partnerName, setPartnerName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [port, setPort] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [error, setError] = useState("");
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setError(""); // clear error on typing
-  };
-
-
-//TEXT FILE UPLOAD
-const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      setForm((prev) => ({
-        ...prev,
-        files: [
-          ...(prev.files || []),
-          {
-            fileId: Date.now().toString() + Math.random().toString(36).slice(2),
-            fileName: file.name,
-            content: reader.result, // TEXT CONTENT
-          },
-        ],
-      }));
-    };
-
-    reader.readAsText(file); //READ AS TEXT
-  };
-
-  const handleSave = () => {
-    if (!form.name.trim()) {
-      setError("Partner name is required");
-      return; //stop save
+  const handleSave = async () => {
+    if (!partnerName || !baseUrl || !port) {
+      alert("All fields are required");
+      return;
     }
 
-    onSave(form); // valid save
+    if (isNaN(port)) {
+      alert("Port must be a number");
+      return;
+    }
+
+    // ✅ Ensure protocol exists
+    let formattedBaseUrl = baseUrl.trim();
+
+    if (
+      !formattedBaseUrl.startsWith("http://") &&
+      !formattedBaseUrl.startsWith("https://")
+    ) {
+      formattedBaseUrl = "http://" + formattedBaseUrl;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/v1/partner/create-partner", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: partnerName.trim(),
+          baseUrl: formattedBaseUrl,
+          port: Number(port),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Backend error:", data);
+        throw new Error(data.detail || "Failed to create partner");
+      }
+
+      alert("Partner created successfully");
+      onClose();
+
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Error creating partner");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="dialog-backdrop">
-      <div className="partner-dialog">
-        <h2>{initialData ? "Edit Partner" : "Add Partner"}</h2>
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Add Partner</DialogTitle>
 
-        {/* Partner Name */}
-        <div className="field">
-          <label>Partner Name</label>
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            placeholder="Your Partner Name"
-          />
-        </div>
+      <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TextField
+          label="Partner Name"
+          value={partnerName}
+          onChange={(e) => setPartnerName(e.target.value)}
+          fullWidth
+        />
 
-        {/* URL + Method */}
-        <div className="row">
-          <div className="field">
-            <label>Base URL</label>
-            <input
-              name="url"
-              value={form.url}
-              onChange={handleChange}
-              placeholder=" "
-            />
-          </div>
+        <TextField
+          label="Base URL"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          fullWidth
+        />
 
-          <div className="field method">
-            <label>Method</label>
-            <select name="method" value={form.method} onChange={handleChange}>
-              <option>GET</option>
-              <option>POST</option>
-              <option>PATCH</option>
-              <option>DELETE</option>
-            </select>
-          </div>
-        </div>
+        <TextField
+          label="Port"
+          value={port}
+          onChange={(e) => setPort(e.target.value)}
+          fullWidth
+        />
+      </DialogContent>
 
-        {/* Headers */}
-        <div className="field">
-          <label>Headers</label>
-          <textarea
-            name="headers"
-            value={form.headers}
-            onChange={handleChange}
-            placeholder=" "
-          />
-        </div>
-
-        {/* Payload */}
-        <div className="field">
-          <label>Payload</label>
-          <textarea
-            name="payload"
-            value={form.payload}
-            onChange={handleChange}
-            placeholder=" "
-          />
-        </div>
-
-        {/* Error */}
-        {error && <p className="form-error">{error}</p>}
-
-        {/* Actions */}
-        <div className="dialog-actions">
-          <button className="secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" onClick={handleSave}>
-            Save Partner
-          </button>
-        </div>
-      </div>
-    </div>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save Partner"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 
 const ApiDocumentViewer = ({ doc }) => {
-  const [expanded, setExpanded] = useState({});
+  // const [expanded, setExpanded] = useState({});
 
-  const toggle = (key) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
+  // const toggle = (key) => {
+  //   setExpanded((prev) => ({
+  //     ...prev,
+  //     [key]: !prev[key],
+  //   }));
+  // };
 
   if (!doc) return null;
 
