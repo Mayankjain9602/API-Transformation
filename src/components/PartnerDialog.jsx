@@ -6,14 +6,16 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 
+const API_BASE = "http://localhost:8080";
+
 const PartnerDialog = ({ onClose }) => {
-  const [partnerName, setPartnerName] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
+  const [partnerType, setPartnerType] = useState("");
+  const [ipAddress, setIpAddress] = useState("");
   const [port, setPort] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
-    if (!partnerName || !baseUrl || !port) {
+    if (!partnerType || !ipAddress || !port) {
       alert("All fields are required");
       return;
     }
@@ -23,44 +25,33 @@ const PartnerDialog = ({ onClose }) => {
       return;
     }
 
-    // ✅ Ensure protocol exists
-    let formattedBaseUrl = baseUrl.trim();
-
-    if (
-      !formattedBaseUrl.startsWith("http://") &&
-      !formattedBaseUrl.startsWith("https://")
-    ) {
-      formattedBaseUrl = "http://" + formattedBaseUrl;
-    }
-
     setLoading(true);
 
     try {
-      const response = await fetch("/api/v1/partner/create-partner", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: partnerName.trim(),
-          baseUrl: formattedBaseUrl,
-          port: Number(port),
-        }),
-      });
-
-      const data = await response.json();
+      const response = await fetch(
+        `${API_BASE}/api/v1/partner/create-client`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            partnerType,
+            ipAddress,
+            port: Number(port),
+          }),
+        }
+      );
 
       if (!response.ok) {
-        console.error("Backend error:", data);
-        throw new Error(data.detail || "Failed to create partner");
+        throw new Error("Failed to create partner");
       }
 
       alert("Partner created successfully");
+
+      // ONLY close dialog. Home will refresh list.
       onClose();
 
-    } catch (error) {
-      console.error(error);
-      alert(error.message || "Error creating partner");
+    } catch (err) {
+      alert(err.message || "Error creating partner");
     } finally {
       setLoading(false);
     }
@@ -70,18 +61,20 @@ const PartnerDialog = ({ onClose }) => {
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Add Partner</DialogTitle>
 
-      <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <DialogContent
+        sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
+      >
         <TextField
-          label="Partner Name"
-          value={partnerName}
-          onChange={(e) => setPartnerName(e.target.value)}
+          label="Partner Type"
+          value={partnerType}
+          onChange={(e) => setPartnerType(e.target.value)}
           fullWidth
         />
 
         <TextField
-          label="Base URL"
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
+          label="IP Address"
+          value={ipAddress}
+          onChange={(e) => setIpAddress(e.target.value)}
           fullWidth
         />
 
