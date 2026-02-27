@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import axios from "axios";
+
 import PartnerDialog from "../components/PartnerDialog";
 import ApiDocumentViewer from "../components/ApiDocumentViewer";
-import { uploadSwaggerDocument } from "../services/uploadService";
-import { adaptBackendDocument } from "../utils/api/adaptBackendDocument";
 
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -11,187 +11,183 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 
-import "../styles/home.css";
-
-const API_BASE = "http://localhost:8080";
+import "./Home.css";
 
 const Home = () => {
   const [partners, setPartners] = useState([]);
   const [documents, setDocuments] = useState([]);
-
   const [openDialog, setOpenDialog] = useState(false);
-  const [editData, setEditData] = useState(null);
 
-  const [search, setSearch] = useState("");
-  const [fileSearch, setFileSearch] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const [apiDoc, setApiDoc] = useState(null);
   const [activeFileName, setActiveFileName] = useState("");
-  const [activeDocId, setActiveDocId] = useState(null);
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileSearch, setFileSearch] = useState("");
 
-  // ================= FETCH PARTNERS FROM BACKEND
+  const BASE_URL = "http://localhost:8080/api";
+
+  /* ---------------- FETCH PARTNERS ---------------- */
   const fetchPartners = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/v1/partner/get-all`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch partners");
-      }
-
-      const data = await response.json();
-      setPartners(data);
+      const res = await axios.get(`${BASE_URL}/partners`);
+      setPartners(res.data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch partners:", err);
     }
   };
 
-  useEffect(() => {
-    fetchPartners();
-  }, []);
-
-  // ================= DELETE PARTNER
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this partner?")) return;
-
+  /* ---------------- FETCH DOCUMENTS ---------------- */
+  const fetchDocuments = async () => {
     try {
-      await fetch(`${API_BASE}/api/v1/partner/delete/${id}`, {
-        method: "DELETE",
-      });
-
-      fetchPartners();
+      const res = await axios.get(`${BASE_URL}/swagger-docs`);
+      setDocuments(res.data || []);
     } catch (err) {
-      alert("Delete failed");
+      console.error("Failed to fetch documents:", err);
     }
   };
 
-  // ================= FILE SELECT
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
-    setConfirmOpen(true);
-    e.target.value = "";
+useEffect(() => {
+  const loadData = async () => {
+    try {
+      const [partnersRes, docsRes] = await Promise.all([
+        axios.get(`${BASE_URL}/partners`),
+        axios.get(`${BASE_URL}/swagger-docs`)
+      ]);
+
+      setPartners(partnersRes.data || []);
+      setDocuments(docsRes.data || []);
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+    }
   };
 
-  // ================= CONFIRM UPLOAD
+  loadData();
+}, []);
+
+  /* ---------------- FILE UPLOAD ---------------- */
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files[0]);
+    setConfirmOpen(true);
+  };
+
   const handleConfirmUpload = async () => {
     if (!selectedFile) return;
 
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
     try {
-      const apiResponse = await uploadSwaggerDocument(selectedFile);
+      await axios.post(`${BASE_URL}/swagger-docs/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      setDocuments((prev) => [
-        ...prev,
-        {
-          fileId: apiResponse.id,
-          fileName: selectedFile.name,
-        },
-      ]);
-
-      alert("Upload successful. Document ID: " + apiResponse.id);
-    } catch (error) {
-      alert(error.message || "Upload failed.");
+      fetchDocuments();
+      setSelectedFile(null);
+      setConfirmOpen(false);
+    } catch (err) {
+      console.error("Upload failed:", err);
     }
-
-    setConfirmOpen(false);
-    setSelectedFile(null);
   };
 
-  // ================= TOGGLE DOCUMENT
-  const handleDocumentClick = async (id, fileName) => {
-    if (activeDocId === id) {
-      setActiveDocId(null);
-      setApiDoc(null);
-      setActiveFileName("");
-      return;
-    }
-
+  /* ---------------- VIEW DOCUMENT ---------------- */
+  const handleDocumentClick = async (fileId, fileName) => {
     try {
-      setActiveDocId(id);
-
-      const response = await fetch(
-        `${API_BASE}/api/swagger-docs/${id}/details`
+      const res = await axios.get(
+        `${BASE_URL}/swagger-docs/${fileId}/details`
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch document details");
-      }
-
-      const data = await response.json();
-      const normalized = adaptBackendDocument(data);
-
-      setApiDoc(normalized);
+      setApiDoc(res.data);
       setActiveFileName(fileName);
     } catch (err) {
-      alert(err.message || "Error loading document");
+      console.error("Failed to load document:", err);
     }
   };
 
-  // ================= FILTERS
-  const filteredPartners = useMemo(() => {
-    return partners.filter((p) =>
-      p.partnerType?.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [partners, search]);
-
+  /* ---------------- FILTER DOCUMENTS ---------------- */
   const filteredDocuments = useMemo(() => {
-    return documents.filter((d) =>
-      d.fileName.toLowerCase().includes(fileSearch.toLowerCase())
+    return documents.filter((doc) =>
+      doc.fileName?.toLowerCase().includes(fileSearch.toLowerCase())
     );
   }, [documents, fileSearch]);
 
   return (
-    <div className="dashboard">
+    <div className="home-container">
+      <h1 className="page-title">Dashboard</h1>
 
-      <div className="dashboard-header">
-        <h1>Home Page</h1>
-
-        <div style={{ display: "flex", gap: "12px" }}>
-          <button className="primary-btn" onClick={() => setOpenDialog(true)}>
+      {/* ================= PARTNERS SECTION ================= */}
+      <div className="section-card">
+        <div className="section-header">
+          <h2>Partners</h2>
+          <button
+            className="primary-btn"
+            onClick={() => setOpenDialog(true)}
+          >
             + Add Partner
           </button>
-
-          <label className="upload-btn">
-            Upload File
-            <input type="file" hidden onChange={handleFileUpload} />
-          </label>
         </div>
-      </div>
 
-      <input
-        className="search"
-        placeholder="Search Partner..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <div className="table-card">
-        <table>
+        <table className="styled-table">
           <thead>
             <tr>
-              <th>Partner Type</th>
-              <th>IP Address</th>
-              <th>Port</th>
-              <th>Actions</th>
+              <th>Name</th>
+              <th>Email</th>
             </tr>
           </thead>
           <tbody>
-            {filteredPartners.map((p) => (
-              <tr key={p.id}>
-                <td>{p.partnerType}</td>
-                <td>{p.ipAddress}</td>
-                <td>{p.port}</td>
+            {partners.map((partner) => (
+              <tr key={partner.id}>
+                <td>{partner.name}</td>
+                <td>{partner.email}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ================= DOCUMENTS SECTION ================= */}
+      <div className="section-card">
+        <div className="section-header">
+          <h2>Uploaded API Documents</h2>
+          <label className="upload-btn">
+            Upload File
+            <input
+              type="file"
+              accept=".json,.yaml,.yml,.txt"
+              hidden
+              onChange={handleFileChange}
+            />
+          </label>
+        </div>
+
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search files..."
+          value={fileSearch}
+          onChange={(e) => setFileSearch(e.target.value)}
+        />
+
+        <table className="styled-table">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredDocuments.map((doc) => (
+              <tr key={doc.fileId}>
+                <td>{doc.fileName}</td>
                 <td>
                   <button
-                    className="icon-btn danger"
-                    onClick={() => handleDelete(p.id)}
+                    className="primary-btn"
+                    onClick={() =>
+                      handleDocumentClick(doc.fileId, doc.fileName)
+                    }
                   >
-                    🗑
+                    View
                   </button>
                 </td>
               </tr>
@@ -200,14 +196,40 @@ const Home = () => {
         </table>
       </div>
 
+      {/* ================= API VIEWER ================= */}
+      {apiDoc && (
+        <div className="section-card">
+          <h2>{activeFileName}</h2>
+          <ApiDocumentViewer doc={apiDoc} />
+        </div>
+      )}
+
+      {/* ================= PARTNER DIALOG ================= */}
       {openDialog && (
         <PartnerDialog
-          onClose={() => {
-            setOpenDialog(false);
-            fetchPartners(); // 🔥 refresh after save
-          }}
+          open={openDialog}
+          handleClose={() => setOpenDialog(false)}
+          refreshPartners={fetchPartners}
         />
       )}
+
+      {/* ================= CONFIRM UPLOAD DIALOG ================= */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Confirm Upload</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Upload file "{selectedFile?.name}" ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmUpload}>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
