@@ -7,7 +7,6 @@ import ApiDocumentViewer from "../components/ApiDocumentViewer";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 
@@ -17,6 +16,7 @@ const Home = () => {
   const [partners, setPartners] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [editingPartner, setEditingPartner] = useState(null);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -28,47 +28,54 @@ const Home = () => {
 
   const BASE_URL = "http://localhost:8080/api";
 
-  /* ---------------- FETCH PARTNERS ---------------- */
-  const fetchPartners = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/partners`);
-      setPartners(res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch partners:", err);
-    }
+  /* ================= LOAD DATA ================= */
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [partnersRes, docsRes] = await Promise.all([
+          axios.get(`${BASE_URL}/v1/partner/create-client`),
+          axios.get(`${BASE_URL}/swagger-docs`)
+        ]);
+
+        setPartners(partnersRes.data || []);
+        setDocuments(docsRes.data || []);
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  /* ================= DELETE PARTNER ================= */
+const handleDeletePartner = async (id) => {
+  try {
+    await axios.delete(
+      `http://localhost:8080/api/v1/partner/create-client/${id}`
+    );
+
+    setPartners(prev => prev.filter(p => p.id !== id));
+
+  } catch (err) {
+    console.error("Delete failed:", err);
+    alert("Delete failed");
+  }
+};
+  /* ================= EDIT PARTNER (UPDATE STATE AFTER PATCH) ================= */
+  const handleEditPartner = (updatedPartner) => {
+    setPartners(prev =>
+      prev.map(p =>
+        p.id === updatedPartner.id ? updatedPartner : p
+      )
+    );
   };
 
-  /* ---------------- FETCH DOCUMENTS ---------------- */
-  const fetchDocuments = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/swagger-docs`);
-      setDocuments(res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch documents:", err);
-    }
-  };
-
-useEffect(() => {
-  const loadData = async () => {
-    try {
-      const [partnersRes, docsRes] = await Promise.all([
-        axios.get(`${BASE_URL}/partners`),
-        axios.get(`${BASE_URL}/swagger-docs`)
-      ]);
-
-      setPartners(partnersRes.data || []);
-      setDocuments(docsRes.data || []);
-    } catch (err) {
-      console.error("Failed to load dashboard data:", err);
-    }
-  };
-
-  loadData();
-}, []);
-
-  /* ---------------- FILE UPLOAD ---------------- */
+  /* ================= FILE UPLOAD ================= */
   const handleFileChange = (e) => {
-    setSelectedFile(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setSelectedFile(file);
     setConfirmOpen(true);
   };
 
@@ -79,19 +86,24 @@ useEffect(() => {
     formData.append("file", selectedFile);
 
     try {
-      await axios.post(`${BASE_URL}/swagger-docs/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await axios.post(
+        `${BASE_URL}/swagger-docs/upload`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
-      fetchDocuments();
-      setSelectedFile(null);
-      setConfirmOpen(false);
+      const docsRes = await axios.get(`${BASE_URL}/swagger-docs`);
+      setDocuments(docsRes.data || []);
     } catch (err) {
       console.error("Upload failed:", err);
+      alert("Upload failed. Check backend.");
+    } finally {
+      setConfirmOpen(false);
+      setSelectedFile(null);
     }
   };
 
-  /* ---------------- VIEW DOCUMENT ---------------- */
+  /* ================= VIEW DOCUMENT ================= */
   const handleDocumentClick = async (fileId, fileName) => {
     try {
       const res = await axios.get(
@@ -105,7 +117,7 @@ useEffect(() => {
     }
   };
 
-  /* ---------------- FILTER DOCUMENTS ---------------- */
+  /* ================= FILTER DOCUMENTS ================= */
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) =>
       doc.fileName?.toLowerCase().includes(fileSearch.toLowerCase())
@@ -114,42 +126,22 @@ useEffect(() => {
 
   return (
     <div className="home-container">
-      <h1 className="page-title">Dashboard</h1>
 
-      {/* ================= PARTNERS SECTION ================= */}
-      <div className="section-card">
-        <div className="section-header">
-          <h2>Partners</h2>
+      {/* ================= TOP BAR ================= */}
+      <div className="top-bar">
+        <h1 className="page-title">Home Page</h1>
+
+        <div className="top-actions">
           <button
             className="primary-btn"
-            onClick={() => setOpenDialog(true)}
+            onClick={() => {
+              setEditingPartner(null);
+              setOpenDialog(true);
+            }}
           >
             + Add Partner
           </button>
-        </div>
 
-        <table className="styled-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            {partners.map((partner) => (
-              <tr key={partner.id}>
-                <td>{partner.name}</td>
-                <td>{partner.email}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ================= DOCUMENTS SECTION ================= */}
-      <div className="section-card">
-        <div className="section-header">
-          <h2>Uploaded API Documents</h2>
           <label className="upload-btn">
             Upload File
             <input
@@ -160,34 +152,41 @@ useEffect(() => {
             />
           </label>
         </div>
+      </div>
 
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search files..."
-          value={fileSearch}
-          onChange={(e) => setFileSearch(e.target.value)}
-        />
-
+      {/* ================= PARTNER TABLE ================= */}
+      <div className="section-card">
         <table className="styled-table">
           <thead>
             <tr>
-              <th>File Name</th>
-              <th>Action</th>
+              <th>Partner Type</th>
+              <th>IP Address</th>
+              <th>Port</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredDocuments.map((doc) => (
-              <tr key={doc.fileId}>
-                <td>{doc.fileName}</td>
+            {partners.map((partner) => (
+              <tr key={partner.id}>
+                <td>{partner.partnerType}</td>
+                <td>{partner.ipAddress}</td>
+                <td>{partner.port}</td>
                 <td>
                   <button
-                    className="primary-btn"
-                    onClick={() =>
-                      handleDocumentClick(doc.fileId, doc.fileName)
-                    }
+                    className="action-btn"
+                    onClick={() => {
+                      setEditingPartner(partner);
+                      setOpenDialog(true);
+                    }}
                   >
-                    View
+                    Edit
+                  </button>
+
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDeletePartner(partner.id)}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -196,40 +195,94 @@ useEffect(() => {
         </table>
       </div>
 
-      {/* ================= API VIEWER ================= */}
+      {/* ================= FILE SEARCH ================= */}
+      <input
+        type="text"
+        className="search-input"
+        placeholder="Search File..."
+        value={fileSearch}
+        onChange={(e) => setFileSearch(e.target.value)}
+      />
+
+      {/* ================= FILE TABLE ================= */}
+      <div className="section-card">
+        <table className="styled-table">
+          <thead>
+            <tr>
+              <th>Document Name</th>
+              <th>Unique ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredDocuments.map((doc) => (
+              <tr key={doc.fileId}>
+                <td
+                  className="clickable"
+                  onClick={() =>
+                    handleDocumentClick(doc.fileId, doc.fileName)
+                  }
+                >
+                  {doc.fileName}
+                </td>
+                <td>{doc.fileId}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ================= DOCUMENT DETAILS ================= */}
       {apiDoc && (
         <div className="section-card">
-          <h2>{activeFileName}</h2>
+          <h2>Document Details</h2>
           <ApiDocumentViewer doc={apiDoc} />
         </div>
       )}
 
       {/* ================= PARTNER DIALOG ================= */}
-      {openDialog && (
-        <PartnerDialog
-          open={openDialog}
-          handleClose={() => setOpenDialog(false)}
-          refreshPartners={fetchPartners}
-        />
-      )}
+      <PartnerDialog
+        open={openDialog}
+        handleClose={() => {
+          setOpenDialog(false);
+          setEditingPartner(null);
+        }}
+        refreshPartners={(newPartner) =>
+          setPartners(prev => [...prev, newPartner])
+        }
+        editingPartner={editingPartner}
+        onEdit={handleEditPartner}
+      />
 
       {/* ================= CONFIRM UPLOAD DIALOG ================= */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+      <Dialog
+        open={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false);
+          setSelectedFile(null);
+        }}
+      >
         <DialogTitle>Confirm Upload</DialogTitle>
+
         <DialogContent>
-          <DialogContentText>
-            Upload file "{selectedFile?.name}" ?
-          </DialogContentText>
+          Upload file "{selectedFile?.name}" ?
         </DialogContent>
+
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>
+          <Button
+            onClick={() => {
+              setConfirmOpen(false);
+              setSelectedFile(null);
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleConfirmUpload}>
+
+          <Button variant="contained" onClick={handleConfirmUpload}>
             Confirm
           </Button>
         </DialogActions>
       </Dialog>
+
     </div>
   );
 };
