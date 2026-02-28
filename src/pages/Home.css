@@ -187,3 +187,67 @@ body {
 .delete-btn:hover {
   background: #e04b4b;
 }
+
+/* ================= MODERN UPLOAD DIALOG ================= */
+
+.upload-box {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.custom-file-upload {
+  background-color: #1976d2;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s ease;
+}
+
+.custom-file-upload:hover {
+  background-color: #125ca1;
+}
+
+.custom-file-upload input {
+  display: none;
+}
+
+.file-name {
+  font-size: 14px;
+  color: #666;
+}
+
+.partner-select-wrapper {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #444;
+}
+
+.partner-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: 0.2s ease;
+}
+
+.partner-select:focus {
+  border-color: #1976d2;
+}
+
+.upload-preview {
+  background-color: #f5f7fa;
+  padding: 15px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #333;
+}

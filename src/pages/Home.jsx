@@ -18,15 +18,16 @@ const Home = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingPartner, setEditingPartner] = useState(null);
 
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState("");
 
   const [apiDoc, setApiDoc] = useState(null);
   const [activeFileName, setActiveFileName] = useState("");
 
   const [fileSearch, setFileSearch] = useState("");
 
-  const BASE_URL = "http://localhost:8080/api";
+  const BASE_URL = "/api";
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
@@ -48,79 +49,78 @@ const Home = () => {
   }, []);
 
   /* ================= DELETE PARTNER ================= */
-const handleDeletePartner = async (id) => {
-  try {
-    await axios.delete(
-      `http://localhost:8080/api/v1/partner/create-client/${id}`
-    );
+  const handleDeletePartner = async (id) => {
+    try {
+      await axios.delete(`${BASE_URL}/v1/partner/create-client/${id}`);
+      setPartners(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
 
-    setPartners(prev => prev.filter(p => p.id !== id));
-
-  } catch (err) {
-    console.error("Delete failed:", err);
-    alert("Delete failed");
-  }
-};
-  /* ================= EDIT PARTNER (UPDATE STATE AFTER PATCH) ================= */
+  /* ================= EDIT PARTNER ================= */
   const handleEditPartner = (updatedPartner) => {
     setPartners(prev =>
-      prev.map(p =>
-        p.id === updatedPartner.id ? updatedPartner : p
-      )
+      prev.map(p => (p.id === updatedPartner.id ? updatedPartner : p))
     );
   };
 
   /* ================= FILE UPLOAD ================= */
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setSelectedFile(file);
-    setConfirmOpen(true);
-  };
-
-  const handleConfirmUpload = async () => {
-    if (!selectedFile) return;
+  const handleUpload = async () => {
+    if (!selectedFile || !selectedPartner) return;
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    formData.append("partner-name", selectedPartner);
 
     try {
-      await axios.post(
-        `${BASE_URL}/swagger-docs/upload`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      await axios.post(`${BASE_URL}/swagger-docs`, formData);
 
       const docsRes = await axios.get(`${BASE_URL}/swagger-docs`);
       setDocuments(docsRes.data || []);
+
+      setUploadOpen(false);
+      setSelectedFile(null);
+      setSelectedPartner("");
     } catch (err) {
       console.error("Upload failed:", err);
-      alert("Upload failed. Check backend.");
-    } finally {
-      setConfirmOpen(false);
-      setSelectedFile(null);
+      alert("Upload failed");
+    }
+  };
+
+  /* ================= DELETE DOCUMENT ================= */
+  const handleDeleteDocument = async (id) => {
+    try {
+      await axios.delete(`${BASE_URL}/swagger-docs/${id}`);
+      setDocuments(prev => prev.filter(d => d.id !== id));
+      if (apiDoc && apiDoc.id === id) {
+        setApiDoc(null);
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
     }
   };
 
   /* ================= VIEW DOCUMENT ================= */
-  const handleDocumentClick = async (fileId, fileName) => {
-    try {
-      const res = await axios.get(
-        `${BASE_URL}/swagger-docs/${fileId}/details`
-      );
+const handleDocumentClick = async (doc) => {
+  try {
+    const res = await axios.get(
+      `${BASE_URL}/swagger-docs/${doc.id}/details`
+    );
 
-      setApiDoc(res.data);
-      setActiveFileName(fileName);
-    } catch (err) {
-      console.error("Failed to load document:", err);
-    }
-  };
+    setApiDoc({
+      ...res.data,
+      partnerName: doc.partnerName
+    });
 
+  } catch (err) {
+    console.error("Failed to load document:", err);
+  }
+};
   /* ================= FILTER DOCUMENTS ================= */
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) =>
-      doc.fileName?.toLowerCase().includes(fileSearch.toLowerCase())
+      doc.title?.toLowerCase().includes(fileSearch.toLowerCase())
     );
   }, [documents, fileSearch]);
 
@@ -142,15 +142,12 @@ const handleDeletePartner = async (id) => {
             + Add Partner
           </button>
 
-          <label className="upload-btn">
+          <button
+            className="upload-btn"
+            onClick={() => setUploadOpen(true)}
+          >
             Upload File
-            <input
-              type="file"
-              accept=".json,.yaml,.yml,.txt"
-              hidden
-              onChange={handleFileChange}
-            />
-          </label>
+          </button>
         </div>
       </div>
 
@@ -211,20 +208,31 @@ const handleDeletePartner = async (id) => {
             <tr>
               <th>Document Name</th>
               <th>Unique ID</th>
+              <th>Partner</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredDocuments.map((doc) => (
-              <tr key={doc.fileId}>
+              <tr key={doc.id}>
                 <td
                   className="clickable"
                   onClick={() =>
-                    handleDocumentClick(doc.fileId, doc.fileName)
+                    handleDocumentClick(doc)
                   }
                 >
-                  {doc.fileName}
+                  {doc.title}
                 </td>
-                <td>{doc.fileId}</td>
+                <td>{doc.id}</td>
+                <td>{doc.partnerName}</td>
+                <td>
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDeleteDocument(doc.id)}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -253,35 +261,90 @@ const handleDeletePartner = async (id) => {
         onEdit={handleEditPartner}
       />
 
-      {/* ================= CONFIRM UPLOAD DIALOG ================= */}
-      <Dialog
-        open={confirmOpen}
-        onClose={() => {
-          setConfirmOpen(false);
-          setSelectedFile(null);
-        }}
+      {/* ================= UPLOAD DIALOG ================= */}
+<Dialog
+  open={uploadOpen}
+  onClose={() => setUploadOpen(false)}
+  maxWidth="sm"
+  fullWidth
+>
+  <DialogTitle style={{ fontWeight: 600 }}>
+    Upload API Document
+  </DialogTitle>
+
+  <DialogContent>
+
+    {/* FILE UPLOAD AREA */}
+    <div className="upload-box">
+      <label className="custom-file-upload">
+        <input
+          type="file"
+          accept=".json,.yaml,.yml"
+          onChange={(e) => setSelectedFile(e.target.files[0])}
+        />
+        Choose File
+      </label>
+
+      <div className="file-name">
+        {selectedFile?.name || "No file selected"}
+      </div>
+    </div>
+
+    {/* PARTNER SELECT */}
+    <div className="partner-select-wrapper">
+      <label className="input-label">Select Partner</label>
+      <select
+        className="partner-select"
+        value={selectedPartner}
+        onChange={(e) => setSelectedPartner(e.target.value)}
       >
-        <DialogTitle>Confirm Upload</DialogTitle>
+        <option value="">Select Partner</option>
+        {partners.map((p) => (
+          <option key={p.id} value={p.partnerType}>
+            {p.partnerType}
+          </option>
+        ))}
+      </select>
+    </div>
 
-        <DialogContent>
-          Upload file "{selectedFile?.name}" ?
-        </DialogContent>
+    {/* PREVIEW BLOCK */}
+    <div className="upload-preview">
+      <div>
+        <strong>Selected File:</strong>
+        <span> {selectedFile?.name || "-"}</span>
+      </div>
 
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setConfirmOpen(false);
-              setSelectedFile(null);
-            }}
-          >
-            Cancel
-          </Button>
+      <div>
+        <strong>Selected Partner:</strong>
+        <span> {selectedPartner || "-"}</span>
+      </div>
+    </div>
 
-          <Button variant="contained" onClick={handleConfirmUpload}>
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+  </DialogContent>
+
+  <DialogActions style={{ padding: "16px 24px" }}>
+    <Button
+      onClick={() => setUploadOpen(false)}
+      style={{ color: "#1976d2" }}
+    >
+      Cancel
+    </Button>
+
+    <Button
+      variant="contained"
+      disabled={!selectedFile || !selectedPartner}
+      onClick={handleUpload}
+      style={{
+        backgroundColor: "#1976d2",
+        textTransform: "none",
+        padding: "6px 20px",
+        borderRadius: "8px"
+      }}
+    >
+      Upload
+    </Button>
+  </DialogActions>
+</Dialog>
 
     </div>
   );
