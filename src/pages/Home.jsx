@@ -58,12 +58,15 @@ const Home = () => {
     }
   };
 
-  /* ================= EDIT PARTNER ================= */
-  const handleEditPartner = (updatedPartner) => {
-    setPartners(prev =>
-      prev.map(p => (p.id === updatedPartner.id ? updatedPartner : p))
-    );
-  };
+/* ================= EDIT PARTNER ================= */
+const handleEditPartner = async () => {
+  try {
+    const res = await axios.get("/api/v1/partner/create-client");
+    setPartners(res.data || []);
+  } catch (err) {
+    console.error("Failed to refresh partners:", err);
+  }
+};
 
   /* ================= FILE UPLOAD ================= */
   const handleUpload = async () => {
@@ -208,7 +211,7 @@ const handleDocumentClick = async (doc) => {
             <tr>
               <th>Document Name</th>
               <th>Unique ID</th>
-              <th>Partner</th>
+              {/* <th>Partner</th> */}
               <th>Actions</th>
             </tr>
           </thead>
@@ -224,7 +227,7 @@ const handleDocumentClick = async (doc) => {
                   {doc.title}
                 </td>
                 <td>{doc.id}</td>
-                <td>{doc.partnerName}</td>
+                {/* <td>{doc.partnerName}</td> */}
                 <td>
                   <button
                     className="delete-btn"
@@ -248,18 +251,16 @@ const handleDocumentClick = async (doc) => {
       )}
 
       {/* ================= PARTNER DIALOG ================= */}
-      <PartnerDialog
-        open={openDialog}
-        handleClose={() => {
-          setOpenDialog(false);
-          setEditingPartner(null);
-        }}
-        refreshPartners={(newPartner) =>
-          setPartners(prev => [...prev, newPartner])
-        }
-        editingPartner={editingPartner}
-        onEdit={handleEditPartner}
-      />
+<PartnerDialog
+  open={openDialog}
+  handleClose={() => {
+    setOpenDialog(false);
+    setEditingPartner(null);
+  }}
+  refreshPartners={handleEditPartner}   // 🔥 change this
+  editingPartner={editingPartner}
+  onEdit={handleEditPartner}
+/>
 
       {/* ================= UPLOAD DIALOG ================= */}
 <Dialog

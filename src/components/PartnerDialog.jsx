@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
+
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -6,7 +8,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 
-const BASE_URL = "http://localhost:8080/api";
+const BASE_URL = "/api";   // ✅ FIXED
 
 const PartnerDialog = ({
   open,
@@ -50,55 +52,30 @@ const PartnerDialog = ({
     try {
       /* ================= EDIT MODE ================= */
       if (editingPartner) {
-        const response = await fetch(
-          `${BASE_URL}/v1/partner/${editingPartner.id}`,
+        await axios.patch(
+          `${BASE_URL}/v1/partner/create-client/${editingPartner.id}`,
           {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              partnerType,
-              ipAddress,
-              port: Number(port),
-            }),
+            partnerType,
+            ipAddress,
+            port: Number(port),
           }
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to update partner");
-        }
-
-        onEdit({
-          id: editingPartner.id,
-          partnerType,
-          ipAddress,
-          port: Number(port),
-        });
+        // Refresh full list from backend (recommended)
+        onEdit();
 
       } else {
         /* ================= CREATE MODE ================= */
-        const response = await fetch(
+        await axios.post(
           `${BASE_URL}/v1/partner/create-client`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              partnerType,
-              ipAddress,
-              port: Number(port),
-            }),
+            partnerType,
+            ipAddress,
+            port: Number(port),
           }
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to create partner");
-        }
-
-        refreshPartners({
-          id: Date.now(), // temporary id for frontend
-          partnerType,
-          ipAddress,
-          port: Number(port),
-        });
+        refreshPartners();  // reload list
       }
 
       handleClose();

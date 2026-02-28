@@ -8,6 +8,8 @@ body {
 /* ================= MAIN CONTAINER ================= */
 .home-container {
   padding: 40px 60px;
+  max-width: 1300px;
+  margin: 0 auto;
 }
 
 /* ================= TOP BAR ================= */
@@ -92,6 +94,7 @@ body {
   margin-bottom: 30px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   transition: 0.3s ease;
+  width: 100%;
 }
 
 .section-card:hover {
@@ -99,49 +102,96 @@ body {
 }
 
 /* ================= TABLE ================= */
-.styled-table {
+/* .styled-table {
   width: 100%;
   border-collapse: collapse;
   overflow: hidden;
   border-radius: 12px;
-}
+} */
 
 /* .styled-table thead {
   background: #ABE7B2;
   text-align: left;
 } */
 
-.styled-table thead {
+/* .styled-table thead {
   background: #f4f8f6;
   border-bottom: 2px solid #93BFC7;
-}
+} */
 
-.styled-table th {
+/* .styled-table th {
   padding: 18px;
   font-weight: 700;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #2c3e50;
-}
+} */
 
-.styled-table th {
+/* .styled-table th {
   padding: 16px;
   font-weight: 600;
   color: #2c3e50;
-}
+} */
 
-.styled-table td {
+/* .styled-table td {
   padding: 14px 16px;
   border-top: 1px solid rgba(0,0,0,0.05);
+} */
+
+/* .styled-table tbody tr {
+  transition: 0.2s ease;
+} */
+
+/* .styled-table tbody tr:hover {
+  background: rgba(147,191,199,0.15);
+} */
+
+/* ================= TABLE ================= */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
+/* HEADER */
+.styled-table thead {
+  background: #f4f8f6;
+  border-bottom: 2px solid #93BFC7;
+}
+
+.styled-table th {
+  padding: 18px 20px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #2c3e50;
+}
+
+/* BODY */
+.styled-table td {
+  padding: 18px 20px;
+  font-size: 15px;
+  color: #2c3e50;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  vertical-align: middle;
+}
+
+/* Hover */
 .styled-table tbody tr {
   transition: 0.2s ease;
 }
 
 .styled-table tbody tr:hover {
-  background: rgba(147,191,199,0.15);
+  background: rgba(147,191,199,0.12);
+}
+
+/* Align last column (Actions) */
+.styled-table th:last-child,
+.styled-table td:last-child {
+  text-align: right;
 }
 
 /* ================= CLICKABLE DOCUMENT NAME ================= */
